@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { ChatMessage as ChatMessageType, QAItem, ChatSession } from '@/types/chat';
 import ChatMessage from '@/components/ChatMessage';
@@ -6,6 +7,70 @@ import Layout from '@/components/Layout';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { MessageSquare, HelpCircle } from 'lucide-react';
+
+// Fallback Q&A data when server is not available
+const FALLBACK_QA_DATA: QAItem[] = [
+  {
+    id: 1,
+    question: "My computer won't start after a Windows update",
+    answer: [
+      "Hold power button for 10 seconds to force shutdown",
+      "Restart and press F8 repeatedly during boot to access Safe Mode",
+      "In Safe Mode, go to Settings > Update & Security > Recovery",
+      "Click 'Go back to the previous version of Windows 10' if available",
+      "If not available, try System Restore from Advanced startup options",
+      "Use Windows Recovery Environment if the above doesn't work"
+    ]
+  },
+  {
+    id: 2,
+    question: "Internet connection is slow or not working",
+    answer: [
+      "Check if other devices can connect to the internet",
+      "Restart your router by unplugging it for 30 seconds",
+      "Run Windows Network Troubleshooter: Settings > Network & Internet > Status > Network troubleshooter",
+      "Reset network settings: netsh winsock reset in Command Prompt (as admin)",
+      "Update network adapter drivers through Device Manager",
+      "Contact your ISP if the issue persists across all devices"
+    ]
+  },
+  {
+    id: 3,
+    question: "Application keeps crashing or freezing",
+    answer: [
+      "Close the application completely and restart it",
+      "Check for application updates in the software or Microsoft Store",
+      "Restart your computer to clear temporary files and processes",
+      "Run the application as administrator (right-click > Run as administrator)",
+      "Check Windows Event Viewer for specific error messages",
+      "Uninstall and reinstall the application if issues persist"
+    ]
+  },
+  {
+    id: 4,
+    question: "Computer is running very slowly",
+    answer: [
+      "Check Task Manager (Ctrl+Shift+Esc) for high CPU/memory usage",
+      "Close unnecessary programs and browser tabs",
+      "Run Disk Cleanup to free up storage space",
+      "Disable startup programs: Task Manager > Startup tab",
+      "Run Windows Defender full system scan",
+      "Consider adding more RAM or upgrading to an SSD if hardware is old"
+    ]
+  },
+  {
+    id: 5,
+    question: "Can't print documents from my computer",
+    answer: [
+      "Check if printer is powered on and connected (USB/WiFi)",
+      "Verify paper is loaded and there are no paper jams",
+      "Run Windows printer troubleshooter: Settings > Devices > Printers & scanners",
+      "Update printer drivers from manufacturer's website",
+      "Remove and re-add the printer in Windows settings",
+      "Try printing a test page from printer properties"
+    ]
+  }
+];
 
 const Chat: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
@@ -21,8 +86,6 @@ const Chat: React.FC = () => {
   // Load Q&A items on component mount
   useEffect(() => {
     fetchQAItems();
-    // Add welcome message
-    addBotMessage(getWelcomeMessage());
   }, []);
 
   // Auto-scroll to bottom when new messages arrive
@@ -30,14 +93,26 @@ const Chat: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Add welcome message after qaItems are loaded
+  useEffect(() => {
+    if (qaItems.length > 0) {
+      addBotMessage(getWelcomeMessage());
+    }
+  }, [qaItems]);
+
   const fetchQAItems = async () => {
     try {
       const response = await fetch('http://localhost:5000/qa');
-      const data = await response.json();
-      setQAItems(data);
+      
+      if (response.ok) {
+        const data = await response.json();
+        setQAItems(data);
+      } else {
+        throw new Error('Server response not ok');
+      }
     } catch (error) {
-      console.error('Failed to fetch Q&A items:', error);
-      addBotMessage("Sorry, I'm having trouble connecting to the support database. Please try again later.");
+      console.log('Server not available, using fallback Q&A data');
+      setQAItems(FALLBACK_QA_DATA);
     }
   };
 

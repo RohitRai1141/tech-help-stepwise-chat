@@ -16,11 +16,76 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
+// Fallback Q&A data when server is not available
+const FALLBACK_QA_DATA: QAItem[] = [
+  {
+    id: 1,
+    question: "My computer won't start after a Windows update",
+    answer: [
+      "Hold power button for 10 seconds to force shutdown",
+      "Restart and press F8 repeatedly during boot to access Safe Mode",
+      "In Safe Mode, go to Settings > Update & Security > Recovery",
+      "Click 'Go back to the previous version of Windows 10' if available",
+      "If not available, try System Restore from Advanced startup options",
+      "Use Windows Recovery Environment if the above doesn't work"
+    ]
+  },
+  {
+    id: 2,
+    question: "Internet connection is slow or not working",
+    answer: [
+      "Check if other devices can connect to the internet",
+      "Restart your router by unplugging it for 30 seconds",
+      "Run Windows Network Troubleshooter: Settings > Network & Internet > Status > Network troubleshooter",
+      "Reset network settings: netsh winsock reset in Command Prompt (as admin)",
+      "Update network adapter drivers through Device Manager",
+      "Contact your ISP if the issue persists across all devices"
+    ]
+  },
+  {
+    id: 3,
+    question: "Application keeps crashing or freezing",
+    answer: [
+      "Close the application completely and restart it",
+      "Check for application updates in the software or Microsoft Store",
+      "Restart your computer to clear temporary files and processes",
+      "Run the application as administrator (right-click > Run as administrator)",
+      "Check Windows Event Viewer for specific error messages",
+      "Uninstall and reinstall the application if issues persist"
+    ]
+  },
+  {
+    id: 4,
+    question: "Computer is running very slowly",
+    answer: [
+      "Check Task Manager (Ctrl+Shift+Esc) for high CPU/memory usage",
+      "Close unnecessary programs and browser tabs",
+      "Run Disk Cleanup to free up storage space",
+      "Disable startup programs: Task Manager > Startup tab",
+      "Run Windows Defender full system scan",
+      "Consider adding more RAM or upgrading to an SSD if hardware is old"
+    ]
+  },
+  {
+    id: 5,
+    question: "Can't print documents from my computer",
+    answer: [
+      "Check if printer is powered on and connected (USB/WiFi)",
+      "Verify paper is loaded and there are no paper jams",
+      "Run Windows printer troubleshooter: Settings > Devices > Printers & scanners",
+      "Update printer drivers from manufacturer's website",
+      "Remove and re-add the printer in Windows settings",
+      "Try printing a test page from printer properties"
+    ]
+  }
+];
+
 const Admin: React.FC = () => {
   const [qaItems, setQAItems] = useState<QAItem[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<QAItem | undefined>();
   const [isLoading, setIsLoading] = useState(true);
+  const [serverAvailable, setServerAvailable] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -30,13 +95,21 @@ const Admin: React.FC = () => {
   const fetchQAItems = async () => {
     try {
       const response = await fetch('http://localhost:5000/qa');
-      const data = await response.json();
-      setQAItems(data);
+      
+      if (response.ok) {
+        const data = await response.json();
+        setQAItems(data);
+        setServerAvailable(true);
+      } else {
+        throw new Error('Server response not ok');
+      }
     } catch (error) {
-      console.error('Failed to fetch Q&A items:', error);
+      console.log('Server not available, using fallback Q&A data');
+      setQAItems(FALLBACK_QA_DATA);
+      setServerAvailable(false);
       toast({
-        title: "Error",
-        description: "Failed to load Q&A items",
+        title: "Server Offline",
+        description: "Using demo data. Start json-server to enable full functionality.",
         variant: "destructive"
       });
     } finally {
@@ -45,6 +118,15 @@ const Admin: React.FC = () => {
   };
 
   const handleSaveQA = async (qaData: Omit<QAItem, 'id'>) => {
+    if (!serverAvailable) {
+      toast({
+        title: "Server Offline",
+        description: "Cannot save changes. Please start the json-server.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       let response;
       
@@ -90,6 +172,15 @@ const Admin: React.FC = () => {
   };
 
   const handleDeleteQA = async (id: number) => {
+    if (!serverAvailable) {
+      toast({
+        title: "Server Offline",
+        description: "Cannot delete items. Please start the json-server.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (!confirm('Are you sure you want to delete this Q&A item?')) {
       return;
     }
@@ -152,9 +243,16 @@ const Admin: React.FC = () => {
             <div>
               <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
               <p className="text-muted-foreground">Manage Q&A knowledge base and support system</p>
+              {!serverAvailable && (
+                <p className="text-sm text-destructive">⚠️ Server offline - using demo data</p>
+              )}
             </div>
           </div>
-          <Button onClick={() => setShowForm(true)} variant="tech">
+          <Button 
+            onClick={() => setShowForm(true)} 
+            variant="tech"
+            disabled={!serverAvailable}
+          >
             <Plus className="h-4 w-4 mr-2" />
             Add Q&A
           </Button>
@@ -240,6 +338,7 @@ const Admin: React.FC = () => {
                           variant="outline"
                           size="sm"
                           onClick={() => handleEdit(item)}
+                          disabled={!serverAvailable}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -247,6 +346,7 @@ const Admin: React.FC = () => {
                           variant="outline"
                           size="sm"
                           onClick={() => handleDeleteQA(item.id)}
+                          disabled={!serverAvailable}
                           className="text-destructive hover:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" />
