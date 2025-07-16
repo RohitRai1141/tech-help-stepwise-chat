@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { QAItem } from '@/types/chat';
 import { Button } from '@/components/ui/button';
@@ -5,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, X, Save } from 'lucide-react';
+import { Plus, X, Save, XCircle } from 'lucide-react';
 
 interface QAFormProps {
   item?: QAItem;
@@ -105,9 +106,10 @@ const QAForm: React.FC<QAFormProps> = ({ item, onSave, onCancel }) => {
           {/* Actions */}
           <div className="flex justify-end space-x-2">
             <Button type="button" variant="outline" onClick={onCancel}>
+              <XCircle className="h-4 w-4 mr-2" />
               Cancel
             </Button>
-            <Button type="submit" variant="tech">
+            <Button type="submit" variant="default">
               <Save className="h-4 w-4 mr-2" />
               Save Q&A
             </Button>

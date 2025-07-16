@@ -13,6 +13,10 @@ import { MessageSquare, HelpCircle, Headphones, Sun, Moon, User, LogOut, Setting
 import { Card } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { addSubmittedIssue } from "@/lib/mock-issues"
+import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/AuthContext"
+import { useTheme } from "@/contexts/ThemeContext"
 
 // Fallback Q&A data when server is not available
 const FALLBACK_QA_DATA: QAItem[] = [
@@ -90,25 +94,10 @@ const Chat: React.FC = () => {
   const [showMailForm, setShowMailForm] = useState(false)
   const [lastUserQuestion, setLastUserQuestion] = useState("")
   const messagesEndRef = useRef<HTMLDivElement>(null)
-
-  // --- temporary local theme & auth placeholders (remove when real contexts are added)
-  const [theme, setTheme] = useState<"light" | "dark">("light")
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === "light" ? "dark" : "light"))
-    // optional: add/remove html class for Tailwind dark mode
-    if (typeof window !== "undefined") {
-      document.documentElement.classList.toggle("dark", theme === "light")
-    }
-  }
-
-  type FakeUser = { name: string; email: string; role: "user" | "admin" }
-  const [user] = useState<FakeUser | null>({
-    name: "Regular User",
-    email: "user@example.com",
-    role: "user",
-  })
-  const logout = () => alert("Logged out (stub)")
-  // --- end placeholders
+  const router = useRouter()
+  const { user, logout } = useAuth()
+  const { theme, toggleTheme } = useTheme()
+  const { toast } = useToast()
 
   // Load Q&A items on component mount
   useEffect(() => {
@@ -333,6 +322,10 @@ The admin will review the submitted message and prepare a solution or response s
     }, 1000)
   }
 
+  const handleAdminPanelClick = () => {
+    router.push("/admin")
+  }
+
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
       {/* Fixed Header */}
@@ -370,7 +363,6 @@ The admin will review the submitted message and prepare a solution or response s
               {theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
             </Button>
 
-            {/* User Profile */}
             {user && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -398,7 +390,7 @@ The admin will review the submitted message and prepare a solution or response s
                     </span>
                   </DropdownMenuItem>
                   {user.role === "admin" && (
-                    <DropdownMenuItem className="flex items-center space-x-2">
+                    <DropdownMenuItem className="flex items-center space-x-2" onClick={handleAdminPanelClick}>
                       <Settings className="h-4 w-4" />
                       <span>Admin Panel</span>
                     </DropdownMenuItem>
@@ -463,23 +455,27 @@ The admin will review the submitted message and prepare a solution or response s
       {/* Chat Input Area or Mail Form */}
       <div className="flex-shrink-0 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 shadow-lg">
         <div className="max-w-4xl mx-auto p-6">
-          {showMailForm ? (
-            <MailForm
-              initialMessage={lastUserQuestion}
-              onSend={handleMailFormSubmit}
-              onCancel={handleCancelMailForm}
-              lastUserQuestion={lastUserQuestion}
-            />
+          {user ? (
+            showMailForm ? (
+              <MailForm
+                initialMessage={lastUserQuestion}
+                onSend={handleMailFormSubmit}
+                onCancel={handleCancelMailForm}
+                lastUserQuestion={lastUserQuestion}
+              />
+            ) : (
+              <ChatInput
+                onSendMessage={handleUserMessage}
+                disabled={isLoading}
+                placeholder={
+                  session.isInProgress
+                    ? "Type 'next' to continue or ask a new question..."
+                    : `Type your question or a number (1-${qaItems.length})...`
+                }
+              />
+            )
           ) : (
-            <ChatInput
-              onSendMessage={handleUserMessage}
-              disabled={isLoading}
-              placeholder={
-                session.isInProgress
-                  ? "Type 'next' to continue or ask a new question..."
-                  : `Type your question or a number (1-${qaItems.length})...`
-              }
-            />
+            <div className="text-center text-muted-foreground py-4">Please log in to start a chat session.</div>
           )}
         </div>
       </div>
