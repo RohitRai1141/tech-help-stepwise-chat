@@ -3,17 +3,18 @@
 
 import type React from "react"
 import type { ChatMessage as ChatMessageType } from "@/types/chat"
-import { Bot, User, CheckCircle, XCircle, Phone } from "lucide-react" // Import new icons
+import { Bot, User, CheckCircle, XCircle, Phone, Mail } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button" // Import Button component
+import { Button } from "@/components/ui/button"
 
 interface ChatMessageProps {
   message: ChatMessageType
-  onAction: (actionType: "worked" | "not_working" | "contact_support") => void // New prop
+  onAction: (actionType: "worked" | "not_working" | "contact_support") => void
+  onSendMailClick: () => void
 }
 
-const ChatMessage: React.FC<ChatMessageProps> = ({ message, onAction }) => {
+const ChatMessage: React.FC<ChatMessageProps> = ({ message, onAction, onSendMailClick }) => {
   const isUser = message.type === "user"
 
   return (
@@ -62,7 +63,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onAction }) => {
         </div>
 
         {/* Action buttons for bot steps */}
-        {!isUser && message.isStep && (
+        {!isUser && message.showActionButtons && (
           <div className="flex flex-col sm:flex-row gap-2 mt-4">
             <Button
               variant="outline"
@@ -87,6 +88,20 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onAction }) => {
             >
               <Phone className="h-4 w-4 mr-2" />
               Contact support
+            </Button>
+          </div>
+        )}
+
+        {/* Send Mail button */}
+        {!isUser && message.showSendMailOption && (
+          <div className="mt-4">
+            <Button
+              variant="outline"
+              className="w-full bg-slate-200 hover:bg-slate-300 text-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-100 border-slate-300 dark:border-slate-600"
+              onClick={onSendMailClick}
+            >
+              <Mail className="h-4 w-4 mr-2" />
+              Send Mail
             </Button>
           </div>
         )}

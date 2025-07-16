@@ -1,4 +1,3 @@
-
 "use client"
 
 import type React from "react"
@@ -6,12 +5,14 @@ import { useState, useEffect, useRef } from "react"
 import type { ChatMessage as ChatMessageType, QAItem, ChatSession } from "@/types/chat"
 import ChatMessage from "@/components/ChatMessage"
 import ChatInput from "@/components/ChatInput"
+import MailForm from "@/components/MailForm"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { MessageSquare, HelpCircle, Headphones, Sun, Moon, User, LogOut, Settings } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { addSubmittedIssue } from "@/lib/mock-issues"
 
 // Fallback Q&A data when server is not available
 const FALLBACK_QA_DATA: QAItem[] = [
@@ -86,6 +87,8 @@ const Chat: React.FC = () => {
     isInProgress: false,
   })
   const [isLoading, setIsLoading] = useState(false)
+  const [showMailForm, setShowMailForm] = useState(false)
+  const [lastUserQuestion, setLastUserQuestion] = useState("")
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // --- temporary local theme & auth placeholders (remove when real contexts are added)
@@ -150,7 +153,14 @@ I can help you with technical issues. You can:
 How can I help you today?`
   }
 
-  const addBotMessage = (content: string, isStep = false, stepNumber?: number, totalSteps?: number) => {
+  const addBotMessage = (
+    content: string,
+    isStep = false,
+    stepNumber?: number,
+    totalSteps?: number,
+    showActionButtons = false,
+    showSendMailOption = false,
+  ) => {
     const message: ChatMessageType = {
       id: Date.now().toString(),
       type: "bot",
@@ -159,6 +169,8 @@ How can I help you today?`
       isStep,
       stepNumber,
       totalSteps,
+      showActionButtons,
+      showSendMailOption,
     }
     setMessages((prev) => [...prev, message])
   }
@@ -176,7 +188,7 @@ How can I help you today?`
   const handleNextStep = (qa: QAItem, stepIndex: number) => {
     if (stepIndex < qa.answer.length) {
       const step = qa.answer[stepIndex]
-      addBotMessage(step, true, stepIndex + 1, qa.answer.length)
+      addBotMessage(step, true, stepIndex + 1, qa.answer.length, true)
 
       setSession({
         currentQA: qa,
@@ -184,8 +196,14 @@ How can I help you today?`
         isInProgress: true,
       })
     } else {
-      // All steps completed, offer contact support
-      addBotMessage("If none of the above steps helped, please contact our support team for further assistance.")
+      addBotMessage(
+        "If none of the above steps helped, please contact our support team for further assistance.",
+        false,
+        undefined,
+        undefined,
+        false,
+        true,
+      )
       setSession({
         currentQA: null,
         currentStep: 0,
@@ -198,45 +216,91 @@ How can I help you today?`
     setIsLoading(true)
     setTimeout(() => {
       if (actionType === "worked") {
-        addUserMessage("It worked!") // Simulate user clicking "It worked!"
+        addUserMessage("It worked!")
         addBotMessage(
           "Excellent! I'm glad that solution worked for you. Your issue has been resolved successfully.\n\nIs there anything else I can help you troubleshoot today? I'm here whenever you need technical assistance.",
         )
         setSession({ currentQA: null, currentStep: 0, isInProgress: false })
       } else if (actionType === "not_working") {
-        addUserMessage("next") // Simulate user clicking "Still not working"
+        addUserMessage("Still not working")
         if (session.isInProgress && session.currentQA) {
           handleNextStep(session.currentQA, session.currentStep)
         } else {
-          // Fallback if somehow not in progress, or no more steps
           addBotMessage(
             "I'm sorry the previous steps didn't resolve your issue. Please try contacting our support team for further assistance.",
+            false,
+            undefined,
+            undefined,
+            false,
+            true,
           )
           setSession({ currentQA: null, currentStep: 0, isInProgress: false })
         }
       } else if (actionType === "contact_support") {
-        addUserMessage("Contact support") // Simulate user clicking "Contact support"
-        addBotMessage(`I'll help you get in touch with our technical support team for personalized assistance.
+        addUserMessage("Contact support")
+        addBotMessage(
+          `I'll help you get in touch with our technical support team for personalized assistance.
 
 **Contact Options:**
-• Email: support@company.com
-• Phone: 1-800-HELP-NOW
-• Live Chat: Available 24/7 on our website
+• 📧 Email: support@company.com
+• 📞 Phone: 1-800-HELP-NOW
+• 💬 Live Chat: Available 24/7 on our website
 
-Our team will be able to provide more specialized help for your specific situation. Is there anything else I can help you with in the meantime?`)
+You can also use the Send Mail option below to forward your query directly to our IT support team.
+
+If you've already typed your issue here, you can simply click "Send Mail" to forward it for review.
+
+Our admin will review your request and respond as soon as possible.`,
+          false,
+          undefined,
+          undefined,
+          false,
+          true,
+        )
         setSession({ currentQA: null, currentStep: 0, isInProgress: false })
       }
       setIsLoading(false)
-    }, 500) // Short delay for action feedback
+    }, 500)
+  }
+
+  const handleSendMailClick = () => {
+    setShowMailForm(true)
+  }
+
+  const handleMailFormSubmit = (formData: {
+    name: string
+    email: string
+    subject: string
+    message: string
+    originalQuestion: string
+  }) => {
+    setIsLoading(true)
+    setTimeout(() => {
+      console.log("Simulating email to admin:", formData)
+      addSubmittedIssue(formData)
+      addUserMessage("Sent mail to support")
+      addBotMessage(
+        `✅ This issue has been forwarded to the admin.
+
+🕵️‍♂️ Status: Pending Review
+
+The admin will review the submitted message and prepare a solution or response shortly.`,
+      )
+      setSession({ currentQA: null, currentStep: 0, isInProgress: false })
+      setShowMailForm(false)
+      setIsLoading(false)
+    }, 1000)
+  }
+
+  const handleCancelMailForm = () => {
+    setShowMailForm(false)
   }
 
   const handleUserMessage = async (userInput: string) => {
     setIsLoading(true)
     addUserMessage(userInput)
+    setLastUserQuestion(userInput)
 
-    // Removed the 'next' keyword parsing as it's now handled by buttons
-
-    // Check if input is a number (question index)
     const questionNumber = Number.parseInt(userInput.trim())
     if (!isNaN(questionNumber) && questionNumber >= 1 && questionNumber <= qaItems.length) {
       const selectedQA = qaItems[questionNumber - 1]
@@ -248,7 +312,6 @@ Our team will be able to provide more specialized help for your specific situati
       return
     }
 
-    // Search for matching question
     const matchedQA = qaItems.find(
       (qa) =>
         qa.question.toLowerCase().includes(userInput.toLowerCase()) ||
@@ -361,7 +424,12 @@ Our team will be able to provide more specialized help for your specific situati
             <ScrollArea className="h-full">
               <div className="p-6 space-y-4">
                 {messages.map((message) => (
-                  <ChatMessage key={message.id} message={message} onAction={handleAction} />
+                  <ChatMessage
+                    key={message.id}
+                    message={message}
+                    onAction={handleAction}
+                    onSendMailClick={handleSendMailClick}
+                  />
                 ))}
 
                 {isLoading && (
@@ -392,18 +460,27 @@ Our team will be able to provide more specialized help for your specific situati
         </div>
       </div>
 
-      {/* Chat Input Area */}
+      {/* Chat Input Area or Mail Form */}
       <div className="flex-shrink-0 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 shadow-lg">
         <div className="max-w-4xl mx-auto p-6">
-          <ChatInput
-            onSendMessage={handleUserMessage}
-            disabled={isLoading}
-            placeholder={
-              session.isInProgress
-                ? "Type 'next' to continue or ask a new question..."
-                : `Type your question or a number (1-${qaItems.length})...`
-            }
-          />
+          {showMailForm ? (
+            <MailForm
+              initialMessage={lastUserQuestion}
+              onSend={handleMailFormSubmit}
+              onCancel={handleCancelMailForm}
+              lastUserQuestion={lastUserQuestion}
+            />
+          ) : (
+            <ChatInput
+              onSendMessage={handleUserMessage}
+              disabled={isLoading}
+              placeholder={
+                session.isInProgress
+                  ? "Type 'next' to continue or ask a new question..."
+                  : `Type your question or a number (1-${qaItems.length})...`
+              }
+            />
+          )}
         </div>
       </div>
 
