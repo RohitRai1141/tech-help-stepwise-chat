@@ -76,5 +76,27 @@
         "Try printing a test page from printer properties"
       ]
     }
+  ],
+  "submittedIssues": [
+    {
+      "timestamp": "2025-07-16T10:27:47.806Z",
+      "status": "resolved",
+      "name": "Rohitrai ",
+      "email": "admin@example.com",
+      "subject": "IT Support Query",
+      "message": "ajschvjskdhjhvckjsvdhckjsvdhc",
+      "originalQuestion": "",
+      "id": 1
+    },
+    {
+      "timestamp": "2025-07-16T10:33:14.398Z",
+      "status": "pending",
+      "name": "Rohitrai ",
+      "email": "admin@example.com",
+      "subject": "IT Support Query",
+      "message": "welgkjnaewrsijlabgv;rso",
+      "originalQuestion": "1",
+      "id": 2
+    }
   ]
 }

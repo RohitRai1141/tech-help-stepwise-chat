@@ -1,62 +1,82 @@
+// This file now interacts with json-server for persistent storage of submitted issues.
 
-export interface SubmittedIssue {
-  id: string
-  name: string
-  email: string
-  subject: string
-  message: string
-  originalQuestion?: string
-  status: "pending" | "resolved"
-  timestamp: Date
-}
+import type { SubmittedIssue } from "@/types/chat"
 
-// In-memory storage for demo purposes
-let submittedIssues: SubmittedIssue[] = [
-  {
-    id: "1",
-    name: "John Doe",
-    email: "john@example.com",
-    subject: "Computer won't start",
-    message: "My computer suddenly stopped working after the latest Windows update. I've tried restarting it multiple times but nothing happens.",
-    originalQuestion: "My computer won't start after a Windows update",
-    status: "pending",
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000) // 2 hours ago
-  },
-  {
-    id: "2",
-    name: "Jane Smith",
-    email: "jane@example.com",
-    subject: "Internet connectivity issues",
-    message: "I'm experiencing very slow internet speeds and frequent disconnections. This has been happening for the past week.",
-    originalQuestion: "Internet connection is slow or not working",
-    status: "resolved",
-    timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000) // 24 hours ago
+const JSON_SERVER_URL = "http://localhost:5000/submittedIssues"
+
+export const getSubmittedIssues = async (): Promise<SubmittedIssue[]> => {
+  try {
+    const response = await fetch(JSON_SERVER_URL)
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    const data: SubmittedIssue[] = await response.json()
+    // Ensure timestamps are Date objects
+    return data.map((issue) => ({
+      ...issue,
+      timestamp: new Date(issue.timestamp),
+    }))
+  } catch (error) {
+    console.error("Failed to fetch submitted issues from json-server, returning empty array:", error)
+    return [] // Return empty array on error
   }
-]
-
-export const getSubmittedIssues = (): SubmittedIssue[] => {
-  return submittedIssues
 }
 
-export const addSubmittedIssue = (issueData: {
-  name: string
-  email: string
-  subject: string
-  message: string
-  originalQuestion: string
-}): void => {
-  const newIssue: SubmittedIssue = {
-    id: Date.now().toString(),
-    ...issueData,
+export const addSubmittedIssue = async (
+  issue: Omit<SubmittedIssue, "id" | "timestamp" | "status">,
+): Promise<SubmittedIssue | undefined> => {
+  const newIssue: Omit<SubmittedIssue, "id"> = {
+    timestamp: new Date(),
     status: "pending",
-    timestamp: new Date()
+    ...issue,
   }
-  submittedIssues.unshift(newIssue) // Add to beginning of array
+  try {
+    const response = await fetch(JSON_SERVER_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(newIssue),
+    })
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    const createdIssue: SubmittedIssue = await response.json()
+    return { ...createdIssue, timestamp: new Date(createdIssue.timestamp) }
+  } catch (error) {
+    console.error("Failed to add submitted issue to json-server:", error)
+    return undefined
+  }
 }
 
-export const updateIssueStatus = (id: string, status: "pending" | "resolved"): void => {
-  const issueIndex = submittedIssues.findIndex(issue => issue.id === id)
-  if (issueIndex !== -1) {
-    submittedIssues[issueIndex].status = status
+export const updateIssueStatus = async (
+  id: string,
+  status: "pending" | "resolved",
+): Promise<SubmittedIssue | undefined> => {
+  try {
+    // First, get the existing issue to ensure we don't overwrite other fields
+    const getResponse = await fetch(`${JSON_SERVER_URL}/${id}`)
+    if (!getResponse.ok) {
+      throw new Error(`Failed to fetch issue for update! status: ${getResponse.status}`)
+    }
+    const existingIssue: SubmittedIssue = await getResponse.json()
+
+    const updatedIssue = { ...existingIssue, status }
+
+    const response = await fetch(`${JSON_SERVER_URL}/${id}`, {
+      method: "PUT", // Use PUT to replace the resource
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(updatedIssue),
+    })
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    const result: SubmittedIssue = await response.json()
+    return { ...result, timestamp: new Date(result.timestamp) }
+  } catch (error) {
+    console.error(`Failed to update issue status for ID ${id}:`, error)
+    return undefined
   }
 }

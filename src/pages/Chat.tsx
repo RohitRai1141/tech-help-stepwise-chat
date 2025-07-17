@@ -9,12 +9,12 @@ import MailForm from "@/components/MailForm"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { MessageSquare, HelpCircle, Headphones, Sun, Moon, User, LogOut, Settings } from "lucide-react"
+import { MessageSquare, HelpCircle, Headphones, Sun, Moon, User, LogOut, Settings, Trash2 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { addSubmittedIssue } from "@/lib/mock-issues"
-import { useToast } from "@/hooks/use-toast"
-import { useRouter } from "next/navigation"
+import { useToast } from "@/components/ui/use-toast"
+import { useNavigate } from "react-router-dom" // Changed from next/navigation
 import { useAuth } from "@/contexts/AuthContext"
 import { useTheme } from "@/contexts/ThemeContext"
 
@@ -94,7 +94,7 @@ const Chat: React.FC = () => {
   const [showMailForm, setShowMailForm] = useState(false)
   const [lastUserQuestion, setLastUserQuestion] = useState("")
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const router = useRouter()
+  const navigate = useNavigate() // Changed from useRouter
   const { user, logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const { toast } = useToast()
@@ -104,17 +104,35 @@ const Chat: React.FC = () => {
     fetchQAItems()
   }, [])
 
+  // Load messages from localStorage on initial mount
+  useEffect(() => {
+    const storedMessages = localStorage.getItem("chatMessages")
+    if (storedMessages) {
+      setMessages(
+        JSON.parse(storedMessages).map((msg: ChatMessageType) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp), // Convert timestamp string back to Date object
+        })),
+      )
+    }
+  }, [])
+
+  // Save messages to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem("chatMessages", JSON.stringify(messages))
+  }, [messages])
+
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
-  // Add welcome message after qaItems are loaded
+  // Add welcome message after qaItems are loaded and user is logged in, only if no messages exist
   useEffect(() => {
-    if (qaItems.length > 0) {
+    if (qaItems.length > 0 && user && messages.length === 0) {
       addBotMessage(getWelcomeMessage())
     }
-  }, [qaItems])
+  }, [qaItems, user, messages.length]) // Depend on messages.length to trigger welcome message on login if chat is empty
 
   const fetchQAItems = async () => {
     try {
@@ -178,7 +196,6 @@ How can I help you today?`
     if (stepIndex < qa.answer.length) {
       const step = qa.answer[stepIndex]
       addBotMessage(step, true, stepIndex + 1, qa.answer.length, true)
-
       setSession({
         currentQA: qa,
         currentStep: stepIndex + 1,
@@ -236,9 +253,7 @@ How can I help you today?`
 • 💬 Live Chat: Available 24/7 on our website
 
 You can also use the Send Mail option below to forward your query directly to our IT support team.
-
 If you've already typed your issue here, you can simply click "Send Mail" to forward it for review.
-
 Our admin will review your request and respond as soon as possible.`,
           false,
           undefined,
@@ -265,12 +280,13 @@ Our admin will review your request and respond as soon as possible.`,
   }) => {
     setIsLoading(true)
     setTimeout(() => {
+      // Simulate sending email AND adding to admin's view
       console.log("Simulating email to admin:", formData)
       addSubmittedIssue(formData)
+
       addUserMessage("Sent mail to support")
       addBotMessage(
         `✅ This issue has been forwarded to the admin.
-
 🕵️‍♂️ Status: Pending Review
 
 The admin will review the submitted message and prepare a solution or response shortly.`,
@@ -323,7 +339,22 @@ The admin will review the submitted message and prepare a solution or response s
   }
 
   const handleAdminPanelClick = () => {
-    router.push("/admin")
+    navigate("/admin") // Changed from router.push
+  }
+
+  const handleClearChat = () => {
+    if (confirm("Are you sure you want to clear the chat history? This cannot be undone.")) {
+      setMessages([])
+      localStorage.removeItem("chatMessages")
+      // Re-add welcome message after clearing
+      if (qaItems.length > 0 && user) {
+        addBotMessage(getWelcomeMessage())
+      }
+      toast({
+        title: "Chat Cleared",
+        description: "Your chat history has been removed.",
+      })
+    }
   }
 
   return (
@@ -358,12 +389,18 @@ The admin will review the submitted message and prepare a solution or response s
 
           {/* Right side controls */}
           <div className="flex items-center space-x-4">
+            {/* Clear Chat Button */}
+            <Button variant="ghost" size="sm" onClick={handleClearChat} className="w-9 h-9 p-0" title="Clear Chat">
+              <Trash2 className="h-4 w-4" />
+              <span className="sr-only">Clear Chat</span>
+            </Button>
+
             {/* Theme Toggle */}
             <Button variant="ghost" size="sm" onClick={toggleTheme} className="w-9 h-9 p-0">
               {theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
             </Button>
 
-            {user && (
+            {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="flex items-center space-x-2">
@@ -404,6 +441,8 @@ The admin will review the submitted message and prepare a solution or response s
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+            ) : (
+              <></>
             )}
           </div>
         </div>
